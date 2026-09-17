@@ -20,17 +20,29 @@ PORT="${MATHLOGIC_PG_PORT:-5433}"
 DB=mathlogic
 
 find_pgbin() {
-    if command -v initdb >/dev/null 2>&1; then
-        dirname "$(command -v initdb)"
-        return
-    fi
+    if command -v initdb >/dev/null 2>&1; then dirname "$(command -v initdb)"; return; fi
     local candidate
-    candidate="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)"
-    if [[ -n "$candidate" && -x "$candidate/initdb" ]]; then
-        echo "$candidate"
-        return
-    fi
-    echo "no Postgres server binary found (looked for initdb and /usr/lib/postgresql/*/bin)" >&2
+    # Debian/Ubuntu, then Homebrew (Apple silicon and Intel), then Postgres.app.
+    for pattern in \
+        "/usr/lib/postgresql/*/bin" \
+        "/opt/homebrew/opt/postgresql@*/bin" \
+        "/usr/local/opt/postgresql@*/bin" \
+        "/opt/homebrew/Cellar/postgresql*/*/bin" \
+        "/Applications/Postgres.app/Contents/Versions/*/bin"
+    do
+        candidate="$(ls -d $pattern 2>/dev/null | sort -V | tail -1 || true)"
+        if [[ -n "$candidate" && -x "$candidate/initdb" ]]; then echo "$candidate"; return; fi
+    done
+    cat >&2 <<'MISSING'
+No PostgreSQL server binary found.
+
+  macOS    brew install postgresql@16
+  Ubuntu   sudo apt install postgresql
+  Fedora   sudo dnf install postgresql-server
+
+Nothing needs to be running — this script builds its own throwaway cluster and
+removes it afterwards. It only needs the binaries to exist.
+MISSING
     exit 1
 }
 

@@ -57,7 +57,9 @@ Level names follow the Kumon convention purely because instructors and parents a
 
 **The handwriting-recognition consequence of this table is worth noting.** Levels 6A to 4A have the youngest, messiest writers and answers that are single digits or short numerals. That is the easiest recognition problem paired with the hardest handwriting. Levels B and C have tidier writers but longer answers and stacked layouts, where the recogniser must also know which box an answer belongs to.
 
-**Pick level 2A for the version-one build.** Answers are single digits, the form is uniform, and the constraint set is small — so the loop can be proven without the generator or the recogniser being the hard part.
+**Pick level 2A for the version-one build.** The form is uniform and the constraint set is small, so the loop can be proven without the generator or the recogniser being the hard part.
+
+Note that answers are **not** all single digits, as an earlier draft of this document claimed. Addition within 10 makes 10 itself the most common answer in the level — there are nine ways to reach it and one way to reach 2 — and it appears on every page. About a fifth of the level's answers have two digits. The tablet's answer field and the recogniser must handle two digits from the first day; capping sums at 9 to avoid this would make the level addition within 9, which is not the level.
 
 Band splits within a level follow the same pattern throughout: roughly pages 1–40 introduce, 41–120 drill, 121–200 mix and speed up. For level 2A that means +1 and +2 first, then the full range, then mixed with the addend order varied.
 

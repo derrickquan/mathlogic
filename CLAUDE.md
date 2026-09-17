@@ -90,6 +90,48 @@ puzzle apps). The open risk is that "math" and "logic" are descriptive terms, so
 the mark is likely to be weak and hard to enforce against a similarly named
 tutoring business later. Raise this with a solicitor at registration.
 
+## The curriculum generator
+
+`curriculum/` generates a level's pages from a template, then freezes them.
+
+- **Determinism is the whole point.** `curriculum/rng.py` is splitmix64, not
+  `random`, because the standard library makes no cross-version promise about
+  `shuffle` or `randrange`. Never swap it out: every page ever frozen becomes
+  unreproducible if that stream changes, and the pinned test in
+  `tests/test_rng.py` exists to stop it.
+- Each page draws from its own stream, derived from the band's seed and the page
+  number, so page 137 regenerates without replaying the 136 before it.
+- **Constraints come in two kinds.** A problem constraint (`sum <= 10`,
+  `exclude_trivial`) filters the candidate pool and can never fail at draw time.
+  A page constraint (`min_distinct_operands`, `mixed_operand_order`) judges the
+  whole page, so the generator draws, checks and redraws.
+- `curriculum/golden/<level>.json` holds a digest of the level's full generated
+  content. If `verify` reports drift on a level that is already in front of
+  students, revert the change — do not re-record the digest.
+- Generated output is not committed. It is reproducible, and a 4,000-problem
+  diff hides more than it shows.
+- Loading order is load-bearing: pages go in unpublished, problems attach, then
+  a final UPDATE publishes them. The freeze trigger rejects problems added to an
+  already-published page, so any other order fails.
+
+## Two findings from authoring 2A
+
+**The schema did not enforce its second invariant.** `docs/schema.sql` claimed in
+its header that pages and problems are frozen once published "(trigger below)",
+but no such trigger existed — only the two on `attempts`. It does now:
+`pages_frozen_when_published` and `problems_frozen_when_page_published`, covering
+UPDATE and DELETE on pages, and INSERT, UPDATE and DELETE on their problems.
+Publishing is the one permitted transition, so the check is on the OLD row.
+
+**2A's answers are not all single digits.** `curriculum-templates.md` justified
+picking 2A for v1 partly on that basis. It cannot be true of addition within 10:
+there are nine ways to make 10 and one way to make 2, so 10 is the level's single
+most common answer — 797 of 4,000 problems, on every one of the 200 pages. The
+tablet's answer field and the recogniser must handle two digits from day one.
+Capping sums at 9 to dodge it would make the level addition within 9, which is a
+different level. The document has been corrected and
+`tests/test_2a.py` guards against the assumption creeping back.
+
 ## Open, not yet decided
 
 - Recognition engine — MyScript iink vs Mathpix digital ink. Test runs in week

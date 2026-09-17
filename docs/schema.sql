@@ -133,6 +133,63 @@ CREATE TABLE problems (
     UNIQUE (page_id, position)
 );
 
+-- Freeze enforcement. A published page is immutable, and so are its problems:
+-- students may be repeating it, and a repeat must present identical problems or
+-- it is new work rather than practice. Publishing itself is the one permitted
+-- transition, so the check is on the OLD row.
+CREATE FUNCTION pages_frozen_when_published() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.published THEN
+            RAISE EXCEPTION 'page % of level % is published and cannot be deleted',
+                OLD.page_number, OLD.level_id;
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    IF OLD.published THEN
+        RAISE EXCEPTION 'page % of level % is published and frozen: a student repeating a packet must meet the same problems',
+            OLD.page_number, OLD.level_id;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER pages_frozen_when_published_trg
+    BEFORE UPDATE OR DELETE ON pages
+    FOR EACH ROW EXECUTE FUNCTION pages_frozen_when_published();
+
+-- The same freeze, one level down. INSERT is blocked too: adding a twenty-first
+-- problem to a published page changes it just as surely as editing one.
+CREATE FUNCTION problems_frozen_when_page_published() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    frozen boolean;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        SELECT published INTO frozen FROM pages WHERE id = OLD.page_id;
+        IF frozen THEN
+            RAISE EXCEPTION 'page % is published: its problems are frozen', OLD.page_id;
+        END IF;
+    END IF;
+
+    IF TG_OP <> 'DELETE' THEN
+        SELECT published INTO frozen FROM pages WHERE id = NEW.page_id;
+        IF frozen THEN
+            RAISE EXCEPTION 'page % is published: its problems are frozen', NEW.page_id;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER problems_frozen_when_page_published_trg
+    BEFORE INSERT OR UPDATE OR DELETE ON problems
+    FOR EACH ROW EXECUTE FUNCTION problems_frozen_when_page_published();
+
 -- ---------------------------------------------------------------------------
 -- Packets — generated per student at runtime, not part of the curriculum
 -- ---------------------------------------------------------------------------

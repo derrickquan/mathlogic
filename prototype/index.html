@@ -299,6 +299,44 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .calib {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 12px;
+  }
+  .calib-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .calib-cell .target {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .calib-cell.done .target { color: var(--teal); }
+  .field.tall { width: 100%; height: 104px; }
+
+  details.proto {
+    border-top: 1px solid var(--rule);
+    padding-top: 14px;
+  }
+  details.proto summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink-2);
+    list-style: revert;
+  }
+  details.proto summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  details.proto > .stack-sm { padding-top: 14px; }
+
   .reader-row {
     display: flex;
     align-items: center;
@@ -382,8 +420,21 @@
     events: [],             // what the night's email will report
     activeMs: 0,
     lastTick: 0,
-    started: null
+    started: null,
+    assignedBy: "Priya",
+    calibrated: false,
+    calibration: {},
+    justCalibrated: false
   };
+
+  // The calibration flag is a per-viewer convenience, so a reload does not make
+  // a child write 0 to 10 again. It is allowed to be missing or to throw.
+  function remembered(k) {
+    try { return window.localStorage.getItem(k); } catch (e) { return null; }
+  }
+  function remember(k, v) {
+    try { window.localStorage.setItem(k, v); } catch (e) { /* private window */ }
+  }
 
   var main = document.getElementById("main");
   var actions = document.getElementById("actions");
@@ -397,9 +448,15 @@
   // counted but a pause to think is.
   var GAP_LIMIT = 90000;
 
+  function counts() {
+    // Checking in and calibrating are not work, and a clock on the calibration
+    // screen would contradict the one thing it is trying to say.
+    return state.view !== "start" && state.view !== "calibrate";
+  }
+
   function tick() {
     var now = Date.now();
-    if (state.lastTick && now - state.lastTick < GAP_LIMIT) {
+    if (counts() && state.lastTick && now - state.lastTick < GAP_LIMIT) {
       state.activeMs += now - state.lastTick;
     }
     state.lastTick = now;
@@ -407,7 +464,7 @@
   }
 
   function paintTime() {
-    if (state.view === "start") { barTime.textContent = ""; return; }
+    if (!counts()) { barTime.textContent = ""; return; }
     var s = Math.floor(state.activeMs / 1000);
     var m = Math.floor(s / 60);
     barTime.textContent = m + "m " + String(s % 60).padStart(2, "0") + "s working";
@@ -416,7 +473,7 @@
   document.addEventListener("pointerdown", tick, true);
   document.addEventListener("pointermove", function (e) { if (e.buttons) tick(); }, true);
   document.addEventListener("keydown", tick, true);
-  setInterval(function () { if (state.view !== "start") paintTime(); }, 1000);
+  setInterval(function () { if (counts()) paintTime(); }, 1000);
 
   // ---------------------------------------------------------------- helpers
 
@@ -473,7 +530,7 @@
 
   // ------------------------------------------------------------- ink canvas
 
-  function makeCanvas(box, saved) {
+  function makeCanvas(box, saved, onFirstInk) {
     var canvas = el("canvas");
     box.appendChild(canvas);
     var ctx = null, drawing = false, last = null, hasInk = !!(saved && saved.length);
@@ -517,8 +574,10 @@
       e.preventDefault();
       canvas.setPointerCapture(e.pointerId);
       drawing = true;
+      var wasBlank = !hasInk;
       hasInk = true;
       box.classList.remove("empty");
+      if (wasBlank && onFirstInk) onFirstInk();
       current = [point(e)];
       strokes.push(current);
       last = current[0];
@@ -587,8 +646,8 @@
   function render() {
     main.innerHTML = "";
     actions.innerHTML = "";
-    barPips.hidden = state.view === "start";
-    btnStop.hidden = state.view === "start" || state.view === "email";
+    barPips.hidden = state.view === "start" || state.view === "calibrate";
+    btnStop.hidden = state.view === "start" || state.view === "calibrate" || state.view === "email";
     paintTime();
     views[state.view]();
     main.scrollTop = 0;
@@ -604,12 +663,106 @@
 
   var views = {};
 
+  // -- handwriting calibration, once ---------------------------------------
+  //
+  // The first thing a new student does. Writing 0 to 10 gives the recogniser a
+  // baseline for this child's hand before it has to read a single answer. It
+  // runs to 10, not 9: 10 is the most common answer in level 2A and the only
+  // two-digit one, so a calibration stopping at 9 would never once exercise the
+  // case the recogniser most has to get right.
+
+  var CALIBRATION_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+
+  views.calibrate = function () {
+    barWhere.textContent = "Getting to know your writing";
+
+    var pads = {};
+    var written = {};
+    var doneBtn;
+    var counter;
+
+    function refresh() {
+      var n = Object.keys(written).length;
+      counter.textContent = n + " of " + CALIBRATION_DIGITS.length + " written";
+      doneBtn.disabled = n < CALIBRATION_DIGITS.length;
+    }
+
+    var grid = el("div", { class: "calib" });
+    CALIBRATION_DIGITS.forEach(function (digit) {
+      var box = el("div", { class: "field tall empty" });
+      var cell = el("div", { class: "calib-cell" }, [
+        el("span", { class: "target", text: digit }),
+        box
+      ]);
+      pads[digit] = makeCanvas(box, null, function () {
+        written[digit] = true;
+        cell.classList.add("done");
+        refresh();
+      });
+      grid.appendChild(cell);
+    });
+
+    main.appendChild(el("div", { class: "wrap stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "First time here" }),
+        el("h2", { text: "Write these for me" }),
+        el("p", { class: "lede", text: "Copy each number into the box under it. This is not a test and nothing here is marked \u2014 it is so I can learn what your numbers look like before you start work." })
+      ]),
+      grid
+    ]));
+
+    counter = el("span", { class: "meta", text: "0 of " + CALIBRATION_DIGITS.length + " written" });
+    doneBtn = el("button", { class: "primary", disabled: true, onclick: function () {
+      CALIBRATION_DIGITS.forEach(function (d) { state.calibration[d] = pads[d].strokes; });
+      state.calibrated = true;
+      state.justCalibrated = true;
+      remember("ml.calibrated", "1");
+      go("start");
+    }, text: "That's all of them" });
+
+    actions.appendChild(counter);
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(doneBtn);
+    refresh();
+  };
+
   // -- check in ------------------------------------------------------------
 
   views.start = function () {
     barWhere.textContent = "Level 2A";
-    barPips.hidden = true;
 
+    var lastPage = state.startPage + state.packetPages - 1;
+
+    var bits = [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "Meridian Centre" }),
+        el("h2", { text: "Hold your card up to the camera" }),
+        el("p", { class: "lede", text: "In the real thing a QR badge checks you in and takes a tablet for the session. Here, tap to start." })
+      ])
+    ];
+
+    if (state.justCalibrated) {
+      bits.push(el("div", { class: "note teal" }, [
+        el("strong", { text: "Thank you \u2014 I have your numbers" }),
+        el("span", { text: "I will keep learning your handwriting from your work, so it gets better at reading you as the year goes on." })
+      ]));
+    }
+
+    var assignment = [
+      el("span", { class: "eyebrow", text: "Set for you by " + state.assignedBy }),
+      el("h3", { text: "Level 2A \u00b7 pages " + state.startPage + "\u2013" + lastPage }),
+      el("p", { class: "meta", text: state.packetPages + " pages \u00b7 " + (state.packetPages * 20) + " problems" +
+        (state.attempt > 1 ? " \u00b7 second go at this packet" : "") })
+    ];
+    var waiting = openCorrections().length;
+    if (waiting) {
+      assignment.push(el("p", { class: "meta", text: waiting + " correction" + (waiting === 1 ? "" : "s") + " to put right first." }));
+    }
+    bits.push(el("div", { class: "card stack-sm" }, assignment));
+
+    // Prototype-only controls. In the product none of this is the student's to
+    // choose: the page comes from where they are in the level, the packet size
+    // from the sizing rule, and writing is the only way to answer.
     var modeSel = el("select", { id: "mode" }, [
       el("option", { value: "write", text: "Write with a pencil or finger" }),
       el("option", { value: "type", text: "Type the answers" })
@@ -617,9 +770,9 @@
     modeSel.value = state.mode;
 
     var sizeSel = el("select", { id: "packet-size" }, [
-      el("option", { value: "10", text: "10 pages — 200 problems" }),
-      el("option", { value: "5", text: "5 pages — 100 problems" }),
-      el("option", { value: "2", text: "2 pages — 40 problems (short, for trying it out)" })
+      el("option", { value: "10", text: "10 pages \u2014 200 problems" }),
+      el("option", { value: "5", text: "5 pages \u2014 100 problems" }),
+      el("option", { value: "2", text: "2 pages \u2014 40 problems" })
     ]);
     sizeSel.value = String(state.packetPages);
 
@@ -627,37 +780,38 @@
       type: "number", id: "start-page", min: "1", max: "200", value: String(state.startPage)
     });
 
-    main.appendChild(el("div", { class: "wrap narrow stack" }, [
+    bits.push(el("details", { class: "proto" }, [
+      el("summary", { text: "Prototype controls" }),
       el("div", { class: "stack-sm" }, [
-        el("span", { class: "eyebrow", text: "Meridian Centre" }),
-        el("h2", { text: "Hold your card up to the camera" }),
-        el("p", { class: "lede", text: "In the real thing a QR badge checks you in and takes a tablet for the session. Here, tap to start." })
-      ]),
-
-      el("div", { class: "card stack-sm" }, [
-        el("h3", { text: "Before you start" }),
+        el("p", { class: "meta", text: "None of these belong to the student. Their page comes from where they are in the level, their packet size from the sizing rule, and in the product writing is the only way to answer. They are here so you can reach any part of the loop without working through 200 problems." }),
+        el("div", { class: "row" }, [el("label", { for: "mode", text: "How to answer" }), modeSel]),
+        el("div", { class: "row" }, [el("label", { for: "packet-size", text: "Packet" }), sizeSel]),
         el("div", { class: "row" }, [
-          el("label", { for: "mode", text: "How to answer" }), modeSel
-        ]),
-        el("div", { class: "row" }, [
-          el("label", { for: "packet-size", text: "Packet" }), sizeSel
-        ]),
-        el("div", { class: "row" }, [
-          el("label", { for: "start-page", text: "Starting at page" }), startInput,
+          el("label", { for: "start-page", text: "Assigned page" }), startInput,
           el("span", { class: "meta", text: "of 200" })
+        ]),
+        el("div", { class: "row" }, [
+          el("button", { class: "small", onclick: function () {
+            state.calibrated = false;
+            state.justCalibrated = false;
+            remember("ml.calibrated", "");
+            go("calibrate");
+          }, text: "Run calibration again" })
         ])
-      ]),
-
-      el("p", { class: "stand-in", html:
-        "<strong>Handwriting recognition is stood in for, not simulated.</strong> " +
-        "The ink you write is real and is captured the way the product would capture it. " +
-        "What no page can do without a server is read it &mdash; so in pencil mode you are " +
-        "shown your own ink afterwards and asked what you wrote, which is also exactly the " +
-        "review queue a facilitator works through. Typing mode grades what you enter, with " +
-        "no stand-in at all." })
+      ])
     ]));
 
-    actions.appendChild(el("span", { class: "meta", text: "Level 2A · addition within 10" }));
+    bits.push(el("p", { class: "stand-in", html:
+      "<strong>Handwriting recognition is stood in for, not simulated.</strong> " +
+      "The ink you write is real and is captured the way the product would capture it. " +
+      "What no page can do without a server is read it &mdash; so in pencil mode you are " +
+      "shown your own ink afterwards and asked what you wrote, which is also exactly the " +
+      "review queue a facilitator works through. Typing mode grades what you enter, with " +
+      "no stand-in at all." }));
+
+    main.appendChild(el("div", { class: "wrap narrow stack" }, bits));
+
+    actions.appendChild(el("span", { class: "meta", text: "Level 2A \u00b7 addition within 10" }));
     actions.appendChild(el("span", { class: "spacer" }));
     actions.appendChild(el("button", { class: "primary", onclick: function () {
       state.mode = modeSel.value;
@@ -666,6 +820,7 @@
       state.startPage = Math.min(state.startPage, 201 - state.packetPages);
       state.pageOffset = 0;
       state.answers = {};
+      state.justCalibrated = false;
       state.started = Date.now();
       state.lastTick = Date.now();
       go(openCorrections().length ? "corrections" : "page");
@@ -1182,6 +1337,9 @@
     }
     go("email");
   });
+
+  state.calibrated = remembered("ml.calibrated") === "1";
+  state.view = state.calibrated ? "start" : "calibrate";
 
   if (!PAGES.length) {
     main.appendChild(el("div", { class: "wrap narrow stack" }, [

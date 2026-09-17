@@ -74,7 +74,7 @@ Most answers are short numbers rather than expressions, which is the easy end of
 
 **Recognition is server-side only.** Because a student cannot submit while offline, there is no need for on-device recognition, and no correct answers are ever stored on the tablet. Offline work is captured as ink with a timestamp and graded on sync. This removes the cheating surface and a substantial amount of client complexity.
 
-**Calibration.** A one-time exercise on the student's first day: write 0 through 9, establishing a baseline profile. The profile then updates passively from confirmed answers, so it tracks handwriting as it matures rather than staying frozen at day one.
+**Calibration.** A one-time exercise on the student's first day, and the first screen a new student sees: write 0 through 10, establishing a baseline profile before the recogniser has to read a single answer. It runs to 10 rather than 9 because 10 is the most common answer in level 2A and the only two-digit one — a calibration stopping at 9 would never once exercise the case the recogniser most has to get right. The profile then updates passively from confirmed answers, so it tracks handwriting as it matures rather than staying frozen at day one.
 
 **Per-student adaptation.** Every instructor override writes to `recognition_corrections`. Over weeks this builds a profile of that student's quirks, and the recogniser is biased accordingly — if their 4 reads ambiguously and their history says 4, weight toward 4. Correction rate per student should fall over time, which directly reduces instructor workload.
 
@@ -187,6 +187,8 @@ The app needs two modes. A parent unlocks into student mode and hands the tablet
 A picture password was the alternative. It was rejected because thirty children in one room means the sequence is visible to whoever is sitting next to them, and because there is nothing to hand back when a family leaves.
 
 At home the parent unlocks into student mode once per session rather than per packet, so a child can finish a sitting without fetching an adult, but cannot wander into the parent view later.
+
+**The student is never offered a choice of work.** The page they start on comes from where they are in the level, their packet size from the sizing rule, and the pencil is the only way to answer. Check-in shows the assignment as a statement, not a menu — picking your own page is how a child avoids the work they find hard, and the whole method rests on them not being able to.
 
 ## Centre operations
 

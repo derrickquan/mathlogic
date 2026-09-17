@@ -132,6 +132,20 @@ Capping sums at 9 to dodge it would make the level addition within 9, which is a
 different level. The document has been corrected and
 `tests/test_2a.py` guards against the assumption creeping back.
 
+## Decisions made while building the prototype
+
+- **Calibration is the first screen a new student ever sees**, before check-in,
+  and it runs **0 to 10, not 0 to 9**. The spec said 9. Ten is the most common
+  answer in 2A and its only two-digit one, so a calibration stopping at 9 never
+  exercises the case the recogniser most has to get right.
+- **The student never chooses their work.** No page picker, no packet-size
+  control, no alternative to writing. Check-in states the assignment; it does not
+  offer a menu. Anything that lets a child pick their own page lets them avoid
+  what they find hard, and the method depends on them not being able to. In the
+  prototype those controls exist only behind a disclosure labelled as not part of
+  the product.
+- Checking in and calibrating do not count toward active working time.
+
 ## Open, not yet decided
 
 - Recognition engine — MyScript iink vs Mathpix digital ink. Test runs in week

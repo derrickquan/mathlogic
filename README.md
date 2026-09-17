@@ -72,10 +72,20 @@ JSON body is a `staff_id` anyone can type.
 ## Checks
 
 ```
-python -m pytest        # 202 tests; the API ones stand up their own PostgreSQL
+scripts/demo.sh         # the whole loop, end to end, narrated
+python -m pytest        # 204 tests; the API ones stand up their own PostgreSQL
 python -m pytest -m 'not integration'   # just the pure ones, no database needed
 scripts/verify-db.sh    # throwaway Postgres: schema, load 2A, assert invariants
 ```
+
+`demo.sh` is the one to run first. It builds a throwaway PostgreSQL, applies the
+schema, loads 2A, seeds two families and a facilitator, starts the server, and
+walks a student through a session over HTTP exactly as a tablet would — parent
+login, unlock, badge check-in, calibration, a wrong answer and an unreadable one,
+the rewrite ceiling, the corrections queue, the gate, closing homework, and a
+facilitator clearing a backlog. It asserts as it narrates, so a change that
+breaks the loop shows up as a failed line rather than a wall of text. It removes
+everything afterwards.
 
 `verify-db.sh` stands up its own cluster, applies the schema, loads the level and
 checks that published pages reject every write, that graded attempts cannot be

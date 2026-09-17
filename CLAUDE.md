@@ -166,6 +166,26 @@ route handler is a smell.
   Testing this against a fake would test the wrong thing: the triggers are the
   invariants.
 
+## A bug worth remembering
+
+Running the loop end to end found something 202 unit tests did not: an answer
+that hit the rewrite ceiling with **nothing readable** was graded against the
+answer key, and `None != "7"`, so it came out **wrong**. It joined the corrections
+queue and counted against the 95% gate — a child marked down for their
+handwriting, which is the one thing legibility must never do.
+
+The two cases at the ceiling are different and are now treated differently:
+
+- **Nothing was read.** There is nothing to be right or wrong about. The answer
+  stays `illegible`, out of the score and out of corrections, flagged for a
+  person to read the ink.
+- **Something was read, just not confidently.** That is the best evidence
+  anyone has, so it is graded, flagged for review, and the override corrects it.
+
+The lesson generalises: every rule here was unit-tested and correct in
+isolation. What was wrong was what happened when three of them met. `scripts/demo.sh`
+exists because of this.
+
 ## Authentication
 
 Three kinds of session, and the distance between them is the security model.

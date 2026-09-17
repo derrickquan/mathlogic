@@ -87,8 +87,23 @@ def grade(
 
     if unreadable or unsure:
         if rewrites_so_far >= REWRITE_CEILING:
-            # Two tries was enough. Take what is there, note the legibility, and
-            # move on; the child is not marked down for their handwriting.
+            # Two tries was enough; the child moves on either way. What happens
+            # to the answer depends on whether there is one to judge.
+            if unreadable:
+                # Nothing was read at all, so there is nothing to be right or
+                # wrong about. Calling it wrong would mark a child down for
+                # their handwriting, which is the one thing legibility must
+                # never do. It stays illegible, out of the score and out of the
+                # corrections queue, and waits for a person to read the ink.
+                return Grade(
+                    verdict=Verdict.ILLEGIBLE,
+                    value=None,
+                    confidence=reading.confidence,
+                    needs_review=True,
+                    accepted_as_written=True,
+                )
+            # A value was read, only not confidently. That is the best evidence
+            # anyone has, so grade it and let the review queue correct it.
             return Grade(
                 verdict=Verdict.CORRECT if reading.value == correct_answer else Verdict.WRONG,
                 value=reading.value,

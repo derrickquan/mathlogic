@@ -63,6 +63,35 @@ def test_being_taken_as_written_does_not_make_a_wrong_answer_right():
     assert result.verdict is Verdict.WRONG
 
 
+def test_ink_nobody_could_read_is_never_marked_wrong():
+    """The bug the end-to-end demo caught, and the reason it matters.
+
+    After two rewrites with nothing readable, grading `None` against the answer
+    key made it wrong: it joined the corrections queue and counted against the
+    95% gate. That is a child marked down for their handwriting, which is the
+    one thing legibility must never do. It stays illegible and waits for a
+    person to read the ink.
+    """
+    result = grade(read(None), "7", rewrites_so_far=REWRITE_CEILING)
+
+    assert result.verdict is Verdict.ILLEGIBLE
+    assert result.accepted_as_written, "the child moves on"
+    assert result.needs_review, "but somebody has to look at it"
+    assert result.value is None
+
+
+def test_a_low_confidence_reading_at_the_ceiling_is_still_graded():
+    """Different case: something was read, only not confidently. That is the
+    best evidence anyone has, so it is graded and the review queue can correct
+    it."""
+    right = grade(read("7", confidence=0.3), "7", rewrites_so_far=REWRITE_CEILING)
+    wrong = grade(read("4", confidence=0.3), "7", rewrites_so_far=REWRITE_CEILING)
+
+    assert right.verdict is Verdict.CORRECT
+    assert wrong.verdict is Verdict.WRONG
+    assert right.needs_review and wrong.needs_review
+
+
 def test_a_facilitator_override_beats_the_engine():
     result = grade(read("4", confidence=0.99), "9", override="9")
     assert result.verdict is Verdict.CORRECT

@@ -12,6 +12,8 @@ including on the nights when nothing was done.
 | [docs/curriculum-templates.md](docs/curriculum-templates.md) | Template format, constraint vocabulary, the level-by-level plan |
 | [docs/schema.sql](docs/schema.sql) | PostgreSQL 14+ schema. The invariants are triggers, not conventions |
 | `curriculum/` | The generator, and one template file per level |
+| `progression/` | The rules: packet assembly, the gate, demotion, sizing, corrections |
+| `prototype/` | A playable browser prototype of the student loop |
 | `db/checks/` | Invariant checks, run against a real database |
 | [CLAUDE.md](CLAUDE.md) | Project memory: invariants, the rules with numbers in them, what is still open |
 
@@ -34,7 +36,7 @@ merged.
 ## Checks
 
 ```
-python -m pytest        # 69 tests: the generator, the constraints, level 2A
+python -m pytest        # 137 tests: generator, constraints, level 2A, progression
 scripts/verify-db.sh    # throwaway Postgres: schema, load 2A, assert invariants
 ```
 
@@ -53,8 +55,25 @@ Homework closes at 100%, because practice is corrected until it is right.
 
 One facilitator covers 25–30 students. The system grades; the facilitator teaches.
 
+## The rules
+
+`progression/` holds every decision the system makes about a child, as pure
+functions over frozen values — no database, no clock it was not handed, no HTTP.
+Each rule lives in one place:
+
+| File | Rule |
+| --- | --- |
+| `packets.py` | A packet is computed from position and packet size, and clipped at a level boundary rather than straddling two |
+| `gate.py` | 95% per hundred problems; a first failure repeats, a second drops a packet and flags a person |
+| `sizing.py` | Three consecutive in-centre packets either side of a dead band; homework never resizes |
+| `corrections.py` | A queue belonging to the student, and the second demotion path |
+| `catalogue.py` | The little the rules need to know about the curriculum |
+
 ## Status
 
-Level 2A is authored: 200 pages, 4,000 problems, loading cleanly into the schema
-with every invariant checked. Nothing else is built yet — no tablet app, no
-recognition, no grading, no console, no parent email.
+Level 2A is authored — 200 pages, 4,000 problems, loading cleanly into the
+schema with every invariant checked — and the progression rules are written and
+tested. There is a playable browser prototype of the student loop.
+
+Not built: the API server, real handwriting recognition, the facilitator
+console, the nightly email, and the native tablet app.

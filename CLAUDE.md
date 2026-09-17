@@ -114,6 +114,30 @@ tutoring business later. Raise this with a solicitor at registration.
   a final UPDATE publishes them. The freeze trigger rejects problems added to an
   already-published page, so any other order fails.
 
+## The progression rules
+
+`progression/` is where every decision about a child lives. Pure functions over
+frozen dataclasses: no database, no `date.today()` it was not handed, no request
+object. That is deliberate — these are the rules that decide whether a
+six-year-old moves forward or back, and they should be readable and testable
+without standing anything up.
+
+- A decision returns an `Outcome`: the new position, the events to write, and
+  whether a person is needed. Events are produced at the moment of the change,
+  never reconstructed afterwards from what the row now says.
+- `EventKind` and `CorrectionStatus` mirror the PostgreSQL enums exactly. If one
+  side gains a member the other has to.
+- The rules never import the generator. `catalogue.py` is the four facts they
+  need, behind a protocol, so they can be tested against a made-up three-level
+  curriculum — which matters, because 2A is currently the only authored level and
+  has nothing either side of it to fall back to or advance into.
+- Things that are states rather than errors, and are handled as such: passing the
+  last packet of the last authored level; failing twice at page 1 of the first
+  level with nowhere to drop to. Both flag a person instead of raising.
+- Packets are clipped at a level boundary rather than straddling two, so a
+  level's last packet can be short. Because the gate is per hundred problems, a
+  short packet is not a harsher one.
+
 ## Two findings from authoring 2A
 
 **The schema did not enforce its second invariant.** `docs/schema.sql` claimed in

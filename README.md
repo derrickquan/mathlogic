@@ -45,6 +45,7 @@ MATHLOGIC_DSN=postgresql:///mathlogic \
 
 | File | Job |
 | --- | --- |
+| `api/auth.py` | Passwords, tokens, and the three kinds of session |
 | `api/recognition.py` | The engine, behind a protocol. None chosen yet, so the default reads nothing and everything goes to a person |
 | `api/grading.py` | A reading plus the answer key becomes a verdict. Confidence is kept separate from correctness |
 | `api/db.py` | Every statement that touches PostgreSQL |
@@ -55,10 +56,23 @@ MATHLOGIC_DSN=postgresql:///mathlogic \
 back verdicts, which is what makes offline capture safe and removes the cheating
 surface. There is a test that fails if an answer key ever appears in a response.
 
+### Who can do what
+
+| Session | Opened by | Lasts | Reaches |
+| --- | --- | --- | --- |
+| Parent | Email and password | 30 days | Their own children's reports and history; unlocking a tablet |
+| Staff | Email and password | 12 hours | The console, overrides, clearing a backlog |
+| Student | A badge scan, or a parent unlock | 4 hours | One student's own work, and nothing else |
+
+A student session can never reach the parent view — a child handed an unlocked
+tablet must not be able to wander into their own scores. A parent can only ever
+reach their own children. Identity always comes from the token: a `staff_id` in a
+JSON body is a `staff_id` anyone can type.
+
 ## Checks
 
 ```
-python -m pytest        # 170 tests; the API ones stand up their own PostgreSQL
+python -m pytest        # 202 tests; the API ones stand up their own PostgreSQL
 python -m pytest -m 'not integration'   # just the pure ones, no database needed
 scripts/verify-db.sh    # throwaway Postgres: schema, load 2A, assert invariants
 ```

@@ -22,6 +22,15 @@ from progression import (
 )
 
 from . import db
+from .auth import (
+    LIFETIMES,
+    Principal,
+    SessionKind,
+    hash_password,
+    new_token,
+    token_hash,
+    verify_password,
+)
 from .grading import Grade, Verdict, grade
 from .recognition import Recogniser
 
@@ -34,6 +43,19 @@ class Conflict(Exception):
     pass
 
 
+class Unauthenticated(Exception):
+    """No usable credentials. The caller may retry with some."""
+
+
+class Forbidden(Exception):
+    """Authenticated, but not for this.
+
+    Kept distinct from Unauthenticated on purpose: a student session reaching a
+    parent route is not a login problem, it is the thing the two kinds exist to
+    prevent.
+    """
+
+
 @dataclass
 class Service:
     database: db.Database
@@ -41,10 +63,120 @@ class Service:
     recogniser: Recogniser
     confidence_threshold: float = 0.80
 
+    # -- who is asking -----------------------------------------------------
+
+    def log_in_parent(self, email: str, password: str) -> dict[str, Any]:
+        with self.database.connection() as conn:
+            account = db.parent_by_email(conn, email)
+            if account is None or not verify_password(password, account["password_hash"]):
+                # One message for both cases: which of the two it was is not the
+                # caller's business, and telling them enumerates accounts.
+                raise Unauthenticated("those details do not match an account")
+
+            token, digest = new_token()
+            db.open_session(
+                conn,
+                kind=SessionKind.PARENT.value,
+                token_hash=digest,
+                expires_in_seconds=int(LIFETIMES[SessionKind.PARENT].total_seconds()),
+                parent_id=str(account["id"]),
+            )
+            return {
+                "token": token,
+                "kind": SessionKind.PARENT.value,
+                "name": account["full_name"],
+                "children": db.children_of(conn, str(account["id"])),
+            }
+
+    def log_in_staff(self, email: str, password: str) -> dict[str, Any]:
+        with self.database.connection() as conn:
+            account = db.staff_by_email(conn, email)
+            if account is None or not verify_password(password, account["password_hash"]):
+                raise Unauthenticated("those details do not match an account")
+
+            token, digest = new_token()
+            db.open_session(
+                conn,
+                kind=SessionKind.STAFF.value,
+                token_hash=digest,
+                expires_in_seconds=int(LIFETIMES[SessionKind.STAFF].total_seconds()),
+                staff_id=str(account["id"]),
+            )
+            return {"token": token, "kind": SessionKind.STAFF.value, "name": account["full_name"]}
+
+    def unlock_student(self, parent: Principal, student_id: str) -> dict[str, Any]:
+        """A parent hands the tablet over at home.
+
+        Once per sitting, not per packet, so a child can finish without fetching
+        an adult. What comes back is a student session and nothing else: it
+        cannot reach the parent view, so the child cannot wander back into their
+        own scores later.
+        """
+        with self.database.connection() as conn:
+            if not db.parent_owns(conn, parent.subject_id, student_id):
+                raise Forbidden("that is not your child")
+
+            token, digest = new_token()
+            db.open_session(
+                conn,
+                kind=SessionKind.STUDENT.value,
+                token_hash=digest,
+                expires_in_seconds=int(LIFETIMES[SessionKind.STUDENT].total_seconds()),
+                student_id=student_id,
+                unlocked_by=parent.subject_id,
+                opened_with="unlock",
+            )
+            student = db.student_by_id(conn, student_id)
+            return {
+                "token": token,
+                "kind": SessionKind.STUDENT.value,
+                "student_id": student_id,
+                "name": student.full_name if student else None,
+                "needs_calibration": not student.calibrated if student else True,
+            }
+
+    def principal_for(self, token: str | None) -> Principal:
+        if not token:
+            raise Unauthenticated("no credentials")
+        with self.database.connection() as conn:
+            row = db.session_by_token_hash(conn, token_hash(token))
+        if row is None:
+            raise Unauthenticated("that session is not valid")
+        return Principal(
+            kind=SessionKind(row["kind"]),
+            session_id=str(row["id"]),
+            parent_id=str(row["parent_id"]) if row["parent_id"] else None,
+            staff_id=str(row["staff_id"]) if row["staff_id"] else None,
+            student_id=str(row["student_id"]) if row["student_id"] else None,
+            unlocked_by=str(row["unlocked_by"]) if row["unlocked_by"] else None,
+        )
+
+    def log_out(self, principal: Principal) -> dict[str, Any]:
+        with self.database.connection() as conn:
+            db.revoke_session(conn, principal.session_id)
+        return {"ended": True}
+
+    def set_password(self, *, parent_id: str | None = None, staff_id: str | None = None,
+                     password: str) -> None:
+        """Used by enrolment and by tests. Hashing lives in one place."""
+        digest = hash_password(password)
+        with self.database.connection() as conn:
+            if parent_id:
+                conn.execute("UPDATE parents SET password_hash = %s WHERE id = %s",
+                             (digest, parent_id))
+            if staff_id:
+                conn.execute("UPDATE staff SET password_hash = %s WHERE id = %s",
+                             (digest, staff_id))
+
     # -- arriving ----------------------------------------------------------
 
     def check_in(self, badge_code: str, tablet_id: str | None = None) -> dict[str, Any]:
-        """A badge held up to the camera. The scan also takes the tablet."""
+        """A badge held up to the camera. The scan also takes the tablet.
+
+        The scan is the authentication: a five-year-old has nothing to remember
+        and nothing to type. It returns a student session, which is why the badge
+        can only ever open the work — never a parent's reports.
+        """
         with self.database.connection() as conn:
             student = db.student_by_badge(conn, badge_code)
             if student is None:
@@ -53,7 +185,18 @@ class Service:
             db.check_in(conn, student.id, tablet_id)
             corrections = db.open_corrections(conn, student.id)
 
+            token, digest = new_token()
+            db.open_session(
+                conn,
+                kind=SessionKind.STUDENT.value,
+                token_hash=digest,
+                expires_in_seconds=int(LIFETIMES[SessionKind.STUDENT].total_seconds()),
+                student_id=student.id,
+                opened_with="badge",
+            )
+
             return {
+                "token": token,
                 "student_id": student.id,
                 "name": student.full_name,
                 "needs_calibration": not student.calibrated,
@@ -298,6 +441,9 @@ class Service:
         with self.database.connection() as conn:
             skipped = db.skip_open_corrections(conn, student_id)
             remaining = db.open_corrections(conn, student_id)
+            # The sitting is over, so the unlock ends with it. A tablet left on
+            # the sofa should not still be open an hour later.
+            db.revoke_student_sessions(conn, student_id)
         return {"skipped": skipped, "still_outstanding": len(remaining)}
 
     def cancel_backlog(self, student_id: str, staff_id: str) -> dict[str, Any]:

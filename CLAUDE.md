@@ -166,6 +166,31 @@ route handler is a smell.
   Testing this against a fake would test the wrong thing: the triggers are the
   invariants.
 
+## Authentication
+
+Three kinds of session, and the distance between them is the security model.
+`sessions` was added to the schema for this — the spec described the accounts but
+never said where sessions live.
+
+- **A student session can never reach the parent view.** That is the whole point
+  of the split, and it comes straight from the spec: the child must not be left
+  sitting inside a screen with their own scores and reports in it. A badge scan
+  and a parent unlock both produce a student session and nothing more.
+- **Identity comes from the token, never the body.** `staff_id` used to arrive in
+  the JSON of the override and cancel-backlog routes, which anybody could type.
+  It now comes from the authenticated session.
+- Lifetimes differ for reasons: a shared console in a room of children should not
+  still be open tomorrow (12h); a parent asked for a password nightly will stop
+  reading the app (30 days); a student session is one sitting (4h) and closing
+  homework revokes it, because a tablet left on the sofa should not still be open.
+- Passwords use `hashlib.scrypt` — memory-hard, standard library, no dependency
+  to keep current. argon2id is the other reasonable choice; `hash_password` and
+  `verify_password` are the only two functions that would have to change.
+- A failed login says the same thing whether the address exists or not, so the
+  endpoint cannot be used to enumerate accounts.
+- The schema check constraint refuses a session carrying two subjects, so a
+  student session cannot quietly acquire a `parent_id` and become one.
+
 ## Two findings from authoring 2A
 
 **The schema did not enforce its second invariant.** `docs/schema.sql` claimed in

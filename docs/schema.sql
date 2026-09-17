@@ -74,6 +74,55 @@ CREATE INDEX students_parent_idx ON students(parent_id);
 CREATE INDEX students_active_idx ON students(withdrawn_on) WHERE withdrawn_on IS NULL;
 
 -- ---------------------------------------------------------------------------
+-- Sessions
+--
+-- Three kinds, and the difference between them is the point.
+--
+--   parent   the account holder, on their own phone. Reports and history.
+--   staff    a facilitator at the console. Short-lived: the console is a shared
+--            machine in a room full of children and should not stay open
+--            overnight.
+--   student  the tablet, working. Opened either by a badge scan at the centre or
+--            by a parent unlocking at home, and scoped to one student. It can
+--            never reach the parent view: a child handed an unlocked tablet must
+--            not be able to wander into their own scores and reports.
+--
+-- Tokens are opaque random strings; only their SHA-256 is stored, so the table
+-- is useless to anyone who reads it.
+-- ---------------------------------------------------------------------------
+
+CREATE TYPE session_kind AS ENUM ('parent', 'staff', 'student');
+
+CREATE TABLE sessions (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind            session_kind NOT NULL,
+    token_hash      text UNIQUE NOT NULL,
+
+    parent_id       uuid REFERENCES parents(id)  ON DELETE CASCADE,
+    staff_id        uuid REFERENCES staff(id)    ON DELETE CASCADE,
+    student_id      uuid REFERENCES students(id) ON DELETE CASCADE,
+
+    -- For a student session: which parent unlocked it, when it was not a badge.
+    unlocked_by     uuid REFERENCES parents(id) ON DELETE SET NULL,
+    opened_with     text NOT NULL DEFAULT 'password',   -- password | badge | unlock
+
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    expires_at      timestamptz NOT NULL,
+    revoked_at      timestamptz,
+
+    -- Exactly one subject, and it must be the one the kind names. Without this
+    -- a student session could carry a parent_id and quietly become one.
+    CONSTRAINT sessions_subject_matches_kind CHECK (
+        (kind = 'parent'  AND parent_id  IS NOT NULL AND staff_id IS NULL AND student_id IS NULL) OR
+        (kind = 'staff'   AND staff_id   IS NOT NULL AND parent_id IS NULL AND student_id IS NULL) OR
+        (kind = 'student' AND student_id IS NOT NULL AND parent_id IS NULL AND staff_id IS NULL)
+    )
+);
+
+CREATE INDEX sessions_live_idx ON sessions(expires_at)
+    WHERE revoked_at IS NULL;
+
+-- ---------------------------------------------------------------------------
 -- Curriculum (canonical, frozen once published)
 -- ---------------------------------------------------------------------------
 

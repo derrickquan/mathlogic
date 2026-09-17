@@ -613,3 +613,123 @@ def room(conn: psycopg.Connection) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Accounts and sessions
+# ---------------------------------------------------------------------------
+
+
+def parent_by_email(conn: psycopg.Connection, email: str) -> dict[str, Any] | None:
+    return conn.execute(
+        "SELECT id, email, password_hash, full_name FROM parents WHERE email = %s", (email,)
+    ).fetchone()
+
+
+def staff_by_email(conn: psycopg.Connection, email: str) -> dict[str, Any] | None:
+    return conn.execute(
+        "SELECT id, email, password_hash, full_name FROM staff "
+        "WHERE email = %s AND is_active",
+        (email,),
+    ).fetchone()
+
+
+def children_of(conn: psycopg.Connection, parent_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT s.id, s.full_name, s.current_page, s.packet_size, l.name AS level
+        FROM students s
+        JOIN levels l ON l.id = s.current_level_id
+        WHERE s.parent_id = %s AND s.withdrawn_on IS NULL
+        ORDER BY s.full_name
+        """,
+        (parent_id,),
+    ).fetchall()
+    return [
+        {
+            "student_id": str(r["id"]),
+            "name": r["full_name"],
+            "level": r["level"],
+            "page": r["current_page"],
+            "packet_size": r["packet_size"],
+        }
+        for r in rows
+    ]
+
+
+def open_session(
+    conn: psycopg.Connection,
+    *,
+    kind: str,
+    token_hash: str,
+    expires_in_seconds: int,
+    parent_id: str | None = None,
+    staff_id: str | None = None,
+    student_id: str | None = None,
+    unlocked_by: str | None = None,
+    opened_with: str = "password",
+) -> str:
+    row = conn.execute(
+        """
+        INSERT INTO sessions
+            (kind, token_hash, parent_id, staff_id, student_id, unlocked_by, opened_with,
+             expires_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, now() + make_interval(secs => %s))
+        RETURNING id
+        """,
+        (kind, token_hash, parent_id, staff_id, student_id, unlocked_by, opened_with,
+         expires_in_seconds),
+    ).fetchone()
+    return str(row["id"])
+
+
+def session_by_token_hash(conn: psycopg.Connection, token_hash: str) -> dict[str, Any] | None:
+    """A live session, or nothing. Expiry and revocation are checked in the
+    query so no caller can forget to."""
+    return conn.execute(
+        """
+        SELECT id, kind, parent_id, staff_id, student_id, unlocked_by
+        FROM sessions
+        WHERE token_hash = %s AND revoked_at IS NULL AND expires_at > now()
+        """,
+        (token_hash,),
+    ).fetchone()
+
+
+def revoke_session(conn: psycopg.Connection, session_id: str) -> None:
+    conn.execute(
+        "UPDATE sessions SET revoked_at = now() WHERE id = %s AND revoked_at IS NULL",
+        (session_id,),
+    )
+
+
+def revoke_student_sessions(conn: psycopg.Connection, student_id: str) -> int:
+    rows = conn.execute(
+        """
+        UPDATE sessions SET revoked_at = now()
+        WHERE student_id = %s AND revoked_at IS NULL AND expires_at > now()
+        RETURNING id
+        """,
+        (student_id,),
+    ).fetchall()
+    return len(rows)
+
+
+def parent_owns(conn: psycopg.Connection, parent_id: str, student_id: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 AS ok FROM students WHERE id = %s AND parent_id = %s AND withdrawn_on IS NULL",
+        (student_id, parent_id),
+    ).fetchone()
+    return row is not None
+
+
+def student_of_attempt(conn: psycopg.Connection, attempt_id: str) -> str | None:
+    row = conn.execute("SELECT student_id FROM attempts WHERE id = %s", (attempt_id,)).fetchone()
+    return str(row["student_id"]) if row else None
+
+
+def student_of_correction(conn: psycopg.Connection, correction_id: str) -> str | None:
+    row = conn.execute(
+        "SELECT student_id FROM corrections WHERE id = %s", (correction_id,)
+    ).fetchone()
+    return str(row["student_id"]) if row else None

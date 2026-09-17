@@ -332,27 +332,36 @@ def test_the_routes_work_end_to_end(service, clean):
         assert body["needs_calibration"] is True
         assert "correct_answer" not in checked_in.text, "not over the wire either"
 
+        # The badge scan is what authenticates everything that follows.
+        headers = {"Authorization": f"Bearer {body['token']}"}
+
         calibrated = client.post(
             f"/students/{clean['student_id']}/calibration",
             json={"samples": calibration_samples()},
+            headers=headers,
         )
         assert calibrated.status_code == 200
 
         started = client.post(
-            "/attempts", json={"student_id": clean["student_id"], "location": "centre"}
+            "/attempts",
+            json={"student_id": clean["student_id"], "location": "centre"},
+            headers=headers,
         ).json()
 
         problem = body["assignment"]["pages"][0]["problems"][0]
         graded = client.post(
             f"/attempts/{started['attempt_id']}/answers",
             json={"problem_id": problem["problem_id"], "ink": ink("99"), "active_seconds": 4},
+            headers=headers,
         ).json()
         assert graded["verdict"] == "wrong"
 
-        queue = client.get(f"/students/{clean['student_id']}/corrections").json()
+        queue = client.get(
+            f"/students/{clean['student_id']}/corrections", headers=headers
+        ).json()
         assert len(queue) == 1
 
-        early = client.post(f"/attempts/{started['attempt_id']}/submit")
+        early = client.post(f"/attempts/{started['attempt_id']}/submit", headers=headers)
         assert early.status_code == 409, "an unfinished packet is not gradeable"
 
         assert client.post("/check-in", json={"badge_code": "nope"}).status_code == 404

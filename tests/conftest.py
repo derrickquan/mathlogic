@@ -21,6 +21,19 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 
+#: scrypt is deliberately slow, so hash the fixtures' passwords once for the
+#: whole session rather than once per test.
+PARENT_PASSWORD = "correct horse battery staple"
+STAFF_PASSWORD = "a facilitator's password"
+
+
+def _hashes():
+    from api.auth import hash_password
+
+    if not hasattr(_hashes, "cached"):
+        _hashes.cached = (hash_password(PARENT_PASSWORD), hash_password(STAFF_PASSWORD))
+    return _hashes.cached
+
 # The Unix socket path has a 107-byte limit, so this cannot live under a long
 # temp directory.
 WORK = Path("/tmp/mathlogic-tests")
@@ -127,10 +140,12 @@ def clean(database):
     The curriculum is left alone — its pages are published and frozen, and
     reloading them between tests is exactly what the schema refuses.
     """
+    parent_hash, staff_hash = _hashes()
+
     with database.connection() as conn:
         for table in (
-            "recognition_corrections", "legibility_notes", "corrections", "answers",
-            "student_events", "check_ins", "handwriting_profiles",
+            "sessions", "recognition_corrections", "legibility_notes", "corrections",
+            "answers", "student_events", "check_ins", "handwriting_profiles",
         ):
             conn.execute(f"DELETE FROM {table}")
         # attempts refuse DELETE by design, so step past the trigger to reset.
@@ -144,11 +159,13 @@ def clean(database):
 
         parent = conn.execute(
             "INSERT INTO parents (email, password_hash, full_name) "
-            "VALUES ('parent@example.test', 'x', 'A Parent') RETURNING id"
+            "VALUES ('parent@example.test', %s, 'A Parent') RETURNING id",
+            (parent_hash,),
         ).fetchone()["id"]
         staff = conn.execute(
             "INSERT INTO staff (email, password_hash, full_name) "
-            "VALUES ('priya@example.test', 'x', 'Priya') RETURNING id"
+            "VALUES ('priya@example.test', %s, 'Priya') RETURNING id",
+            (staff_hash,),
         ).fetchone()["id"]
         student = conn.execute(
             """
@@ -162,8 +179,37 @@ def clean(database):
             "INSERT INTO badges (student_id, code) VALUES (%s, 'BADGE-AMARA')", (student,)
         )
 
-    return {"student_id": str(student), "staff_id": str(staff), "parent_id": str(parent),
-            "badge": "BADGE-AMARA"}
+        # A second family, so "not your child" can actually be tested.
+        other_parent = conn.execute(
+            "INSERT INTO parents (email, password_hash, full_name) "
+            "VALUES ('other@example.test', %s, 'Another Parent') RETURNING id",
+            (parent_hash,),
+        ).fetchone()["id"]
+        other_student = conn.execute(
+            """
+            INSERT INTO students (parent_id, full_name, current_level_id, current_page, packet_size)
+            VALUES (%s, 'Theo B.', (SELECT id FROM levels WHERE name = '2A'), 61, 10)
+            RETURNING id
+            """,
+            (other_parent,),
+        ).fetchone()["id"]
+        conn.execute(
+            "INSERT INTO badges (student_id, code) VALUES (%s, 'BADGE-THEO')", (other_student,)
+        )
+
+    return {
+        "student_id": str(student),
+        "staff_id": str(staff),
+        "parent_id": str(parent),
+        "badge": "BADGE-AMARA",
+        "parent_email": "parent@example.test",
+        "parent_password": PARENT_PASSWORD,
+        "staff_email": "priya@example.test",
+        "staff_password": STAFF_PASSWORD,
+        "other_student_id": str(other_student),
+        "other_parent_email": "other@example.test",
+        "other_badge": "BADGE-THEO",
+    }
 
 
 @pytest.fixture

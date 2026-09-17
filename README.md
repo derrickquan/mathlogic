@@ -13,6 +13,7 @@ including on the nights when nothing was done.
 | [docs/schema.sql](docs/schema.sql) | PostgreSQL 14+ schema. The invariants are triggers, not conventions |
 | `curriculum/` | The generator, and one template file per level |
 | `progression/` | The rules: packet assembly, the gate, demotion, sizing, corrections |
+| `api/` | The server: recognition, grading, the database, the loop |
 | `prototype/` | A playable browser prototype of the student loop |
 | `db/checks/` | Invariant checks, run against a real database |
 | [CLAUDE.md](CLAUDE.md) | Project memory: invariants, the rules with numbers in them, what is still open |
@@ -33,10 +34,32 @@ Generated output is not committed — it is reproducible from the templates, and
 `curriculum/golden/2A.json` records the digest so drift is caught rather than
 merged.
 
+## The server
+
+```
+pip install -e '.[server,dev]'
+scripts/verify-db.sh                       # proves a database is loadable
+MATHLOGIC_DSN=postgresql:///mathlogic \
+  uvicorn api.app:app --factory --reload
+```
+
+| File | Job |
+| --- | --- |
+| `api/recognition.py` | The engine, behind a protocol. None chosen yet, so the default reads nothing and everything goes to a person |
+| `api/grading.py` | A reading plus the answer key becomes a verdict. Confidence is kept separate from correctness |
+| `api/db.py` | Every statement that touches PostgreSQL |
+| `api/service.py` | The loop — the only place rules, queries and ink meet |
+| `api/app.py` | Routes |
+
+**Correct answers never leave the server.** The tablet is sent prompts and gets
+back verdicts, which is what makes offline capture safe and removes the cheating
+surface. There is a test that fails if an answer key ever appears in a response.
+
 ## Checks
 
 ```
-python -m pytest        # 137 tests: generator, constraints, level 2A, progression
+python -m pytest        # 170 tests; the API ones stand up their own PostgreSQL
+python -m pytest -m 'not integration'   # just the pure ones, no database needed
 scripts/verify-db.sh    # throwaway Postgres: schema, load 2A, assert invariants
 ```
 
@@ -75,5 +98,9 @@ Level 2A is authored — 200 pages, 4,000 problems, loading cleanly into the
 schema with every invariant checked — and the progression rules are written and
 tested. There is a playable browser prototype of the student loop.
 
-Not built: the API server, real handwriting recognition, the facilitator
-console, the nightly email, and the native tablet app.
+The API server runs the whole loop against the real schema: check in, fetch the
+assignment, submit ink, grade, corrections, advancement and demotion.
+
+Not built: real handwriting recognition (no engine chosen — the default reads
+nothing and sends everything to a person), the facilitator console, the nightly
+email, and the native tablet app.

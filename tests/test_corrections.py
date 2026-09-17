@@ -55,10 +55,17 @@ def test_a_resolved_correction_is_finished():
         transition(c, CorrectionStatus.SKIPPED)
 
 
-def test_a_pending_correction_cannot_be_cancelled_straight_out():
-    """Cancelling is a facilitator clearing a backlog, which is a skipped pile."""
-    with pytest.raises(ValueError, match="cannot become cancelled"):
-        transition(pending(1)[0], CorrectionStatus.CANCELLED)
+def test_a_backlog_can_be_cancelled_whether_or_not_it_was_ever_skipped():
+    """A backlog is whatever is outstanding when the facilitator looks at it.
+
+    Last night's skipped ones and this morning's pending ones are both in the
+    pile. Routing today's through `skipped` first would record a skip the child
+    never chose.
+    """
+    assert transition(pending(1)[0], CorrectionStatus.CANCELLED).status is CorrectionStatus.CANCELLED
+
+    skipped = transition(pending(1)[0], CorrectionStatus.SKIPPED, on=TODAY)
+    assert transition(skipped, CorrectionStatus.CANCELLED).status is CorrectionStatus.CANCELLED
 
 
 def test_closing_homework_skips_what_is_left_and_says_how_many():

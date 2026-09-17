@@ -5,10 +5,15 @@ they accumulate, and they are cleared at the start of the next in-centre session
 before any new material.
 
     pending ──resolved──▶ resolved        student corrects it
-       │
-       └──skipped──▶ skipped ──resolved──▶ resolved    fixed in centre later
-                        │
-                        └──cancelled──▶ cancelled      facilitator clears backlog
+       │  │
+       │  └──skipped──▶ skipped ──resolved──▶ resolved    fixed in centre later
+       │                   │
+       └───────────────────┴──cancelled──▶ cancelled   facilitator clears backlog
+
+Cancelling reaches both open states, because a backlog is whatever is
+outstanding when the facilitator looks at it — last night's skipped ones and
+this morning's pending ones alike. Routing today's through `skipped` first would
+record a skip the child never chose.
 
 Skipping is allowed and visible: a child can close homework with corrections
 outstanding, the skip is logged, and it appears in that night's email. Nothing
@@ -31,7 +36,9 @@ from .models import CorrectionStatus, Event, EventKind, Outcome, Position
 from .packets import go_back
 
 _ALLOWED: dict[CorrectionStatus, frozenset[CorrectionStatus]] = {
-    CorrectionStatus.PENDING: frozenset({CorrectionStatus.RESOLVED, CorrectionStatus.SKIPPED}),
+    CorrectionStatus.PENDING: frozenset(
+        {CorrectionStatus.RESOLVED, CorrectionStatus.SKIPPED, CorrectionStatus.CANCELLED}
+    ),
     CorrectionStatus.SKIPPED: frozenset({CorrectionStatus.RESOLVED, CorrectionStatus.CANCELLED}),
     CorrectionStatus.RESOLVED: frozenset(),
     CorrectionStatus.CANCELLED: frozenset(),

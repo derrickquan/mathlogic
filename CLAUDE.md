@@ -138,6 +138,34 @@ without standing anything up.
   level's last packet can be short. Because the gate is per hundred problems, a
   short packet is not a harsher one.
 
+## The server
+
+`api/` is thin on purpose. Rules live in `progression/`, SQL lives in `db.py`,
+and `service.py` is the only file that knows about both. A rule creeping into a
+route handler is a smell.
+
+- **Recognition sits behind a protocol and no engine is chosen.** The default,
+  `NullRecogniser`, reads nothing at all — so every answer lands in the
+  facilitator's review queue rather than being silently marked by a stand-in
+  somebody forgot was a stand-in. `DeclaredValueRecogniser` takes the client's
+  word for what it wrote and is for tests and the prototype only; trusting the
+  device with what it wrote is one step from trusting it with whether that was
+  right.
+- **Correct answers never leave the server.** `page_problems` returns prompts;
+  `correct_answer_for` is named to make the other side of that line obvious.
+  `test_the_tablet_is_never_given_a_correct_answer` fails if an answer key ever
+  reaches a response, over the wire included.
+- **An unfinished packet cannot be graded.** Submitting with 1 of 100 answered
+  used to pass the gate on a technicality. The server counts answers against the
+  packet's problem count and refuses, because it cannot take the tablet's word
+  for having finished.
+- The sizing rule reads the `packet_pacing` view and the escalation rule reads
+  `student_events`. Neither is reassembled in Python. Sizing runs *after* the
+  attempt is graded, because the view only sees graded in-centre attempts.
+- Integration tests stand up a real PostgreSQL, apply the schema and load 2A.
+  Testing this against a fake would test the wrong thing: the triggers are the
+  invariants.
+
 ## Two findings from authoring 2A
 
 **The schema did not enforce its second invariant.** `docs/schema.sql` claimed in

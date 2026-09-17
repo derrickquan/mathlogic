@@ -1,0 +1,1195 @@
+<title>MathLogic 2A</title>
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #FBF9F4;
+    --surface:    #FFFFFF;
+    --field:      #F4F1E8;
+    --ink:        #1B1B18;
+    --ink-2:      #58544B;
+    --rule:       #E4DED1;
+    --rule-2:     #CFC6B4;
+    --teal:       #0F5E55;
+    --teal-soft:  #E7F0EC;
+    --rust:       #A83A18;
+    --rust-soft:  #FBEAE3;
+    --amber:      #7A5600;
+    --amber-soft: #FAF0DA;
+    --pencil:     #1B1B18;
+    --shadow:     0 1px 2px rgba(27, 27, 24, .06);
+
+    --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #15181A;
+      --surface:    #1C2124;
+      --field:      #232A2D;
+      --ink:        #ECE9E2;
+      --ink-2:      #A7ADA6;
+      --rule:       #2C3336;
+      --rule-2:     #3C4548;
+      --teal:       #63CDB5;
+      --teal-soft:  #16302B;
+      --rust:       #F3936F;
+      --rust-soft:  #3A1F16;
+      --amber:      #E3BA55;
+      --amber-soft: #332A14;
+      --pencil:     #ECE9E2;
+      --shadow:     0 1px 2px rgba(0, 0, 0, .3);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #15181A;
+    --surface:    #1C2124;
+    --field:      #232A2D;
+    --ink:        #ECE9E2;
+    --ink-2:      #A7ADA6;
+    --rule:       #2C3336;
+    --rule-2:     #3C4548;
+    --teal:       #63CDB5;
+    --teal-soft:  #16302B;
+    --rust:       #F3936F;
+    --rust-soft:  #3A1F16;
+    --amber:      #E3BA55;
+    --amber-soft: #332A14;
+    --pencil:     #ECE9E2;
+    --shadow:     0 1px 2px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+
+  .app { display: flex; flex-direction: column; height: 100%; }
+
+  /* ---------------------------------------------------------------- header */
+
+  .bar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule);
+  }
+  .bar h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: .01em;
+  }
+  .bar .spacer { flex: 1 1 auto; }
+  .meta { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .pips { display: flex; gap: 4px; }
+  .pip { width: 16px; height: 6px; border-radius: 3px; background: var(--rule-2); }
+  .pip.done { background: var(--teal); }
+  .pip.now  { background: var(--ink); }
+
+  /* ------------------------------------------------------------------ main */
+
+  main {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 20px 28px;
+  }
+  .narrow { max-width: 640px; }
+
+  h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 600;
+    text-wrap: balance;
+    line-height: 1.15;
+  }
+  h3 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 600;
+  }
+  p { margin: 0; }
+  .lede { color: var(--ink-2); max-width: 62ch; }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .stack { display: flex; flex-direction: column; gap: 20px; }
+  .stack-sm { display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* --------------------------------------------------------------- problems */
+
+  .sheet {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 20px;
+  }
+  @media (max-width: 720px) { .sheet { grid-template-columns: 1fr; } }
+
+  .prob {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .prob .n {
+    width: 20px;
+    font-size: 12px;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .prob .q {
+    flex: 1 1 auto;
+    font-family: var(--mono);
+    font-size: clamp(20px, 3.2vw, 25px);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .field {
+    position: relative;
+    width: 92px;
+    height: 68px;
+    flex: 0 0 auto;
+    background: var(--field);
+    border: 1px solid var(--rule-2);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .field canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  .field.empty::after {
+    content: "";
+    position: absolute;
+    left: 12px; right: 12px; bottom: 15px;
+    border-bottom: 2px dashed var(--rule-2);
+    pointer-events: none;
+  }
+  .field input {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .field input:focus { outline: 2px solid var(--teal); outline-offset: -2px; }
+
+  .prob.correct  { border-color: var(--teal); }
+  .prob.wrong    { border-color: var(--rust); background: var(--rust-soft); }
+  .prob.unread   { border-color: var(--amber); background: var(--amber-soft); }
+  .prob .verdict { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .prob.wrong  .verdict { color: var(--rust); }
+  .prob.unread .verdict { color: var(--amber); }
+  .prob.correct .verdict { color: var(--teal); }
+
+  /* --------------------------------------------------------------- controls */
+
+  button {
+    font: inherit;
+    font-weight: 500;
+    min-height: 46px;
+    padding: 0 20px;
+    border-radius: 23px;
+    border: 1px solid var(--rule-2);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--ink-2); }
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  button.primary {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: var(--surface);
+    font-weight: 600;
+  }
+  /* --surface is white on the paper theme and near-black on the slate one, so
+     it stays readable on the teal in both without a per-theme override. */
+  button.primary:hover { filter: brightness(1.08); }
+  button.small { min-height: 38px; padding: 0 14px; font-size: 14px; border-radius: 19px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--rule);
+  }
+  .actions .spacer { flex: 1 1 auto; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .note { border-radius: 12px; padding: 14px 16px; }
+  .note.amber { background: var(--amber-soft); color: var(--amber); }
+  .note.rust  { background: var(--rust-soft);  color: var(--rust); }
+  .note.teal  { background: var(--teal-soft);  color: var(--teal); }
+  .note strong { display: block; color: inherit; }
+  .note span { color: var(--ink); font-weight: 400; }
+
+  label { font-size: 14px; color: var(--ink-2); }
+  select, input[type="number"] {
+    font: inherit;
+    min-height: 44px;
+    padding: 0 10px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: 10px;
+  }
+
+  .big {
+    font-family: var(--display);
+    font-size: clamp(40px, 9vw, 60px);
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .reader-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .reader-row .ink { width: 64px; height: 50px; flex: 0 0 auto; background: var(--field); border-radius: 8px; }
+  .reader-row .ink canvas { display: block; width: 100%; height: 100%; }
+  .reader-row input {
+    width: 68px;
+    min-height: 44px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 19px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule-2);
+    border-radius: 10px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+  th { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+  td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .stand-in {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-2);
+    border-left: 2px solid var(--rule-2);
+    padding-left: 12px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<script src="2A.data.js"></script>
+
+<div class="app">
+  <header class="bar">
+    <h1>MathLogic</h1>
+    <span class="meta" id="bar-where">Level 2A</span>
+    <div class="pips" id="bar-pips" hidden></div>
+    <span class="spacer"></span>
+    <span class="meta" id="bar-time"></span>
+    <button class="small" id="btn-stop" hidden>Stop for now</button>
+  </header>
+
+  <main id="main"></main>
+
+  <div class="actions" id="actions"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAGES = window.LEVEL_2A || [];
+  var LEVEL = "2A";
+
+  // Gate arithmetic from the spec: ceil(problems * 0.05), never below 1.
+  function allowedWrong(n) { return Math.max(1, Math.ceil(n * 0.05)); }
+
+  var state = {
+    view: "start",
+    mode: "write",          // "write" = pencil + reader step, "type" = keypad
+    packetPages: 10,
+    startPage: 41,
+    pageOffset: 0,          // which page of the packet we are on
+    attempt: 1,
+    failures: 0,
+    answers: {},            // "page:pos" -> {value, verdict, rewrites, ink}
+    corrections: [],
+    skipped: [],
+    legibility: [],
+    events: [],             // what the night's email will report
+    activeMs: 0,
+    lastTick: 0,
+    started: null
+  };
+
+  var main = document.getElementById("main");
+  var actions = document.getElementById("actions");
+  var barWhere = document.getElementById("bar-where");
+  var barPips = document.getElementById("bar-pips");
+  var barTime = document.getElementById("bar-time");
+  var btnStop = document.getElementById("btn-stop");
+
+  // ------------------------------------------------------------ active time
+  // Pen-down time plus gaps under 90 seconds, so a bathroom break is not
+  // counted but a pause to think is.
+  var GAP_LIMIT = 90000;
+
+  function tick() {
+    var now = Date.now();
+    if (state.lastTick && now - state.lastTick < GAP_LIMIT) {
+      state.activeMs += now - state.lastTick;
+    }
+    state.lastTick = now;
+    paintTime();
+  }
+
+  function paintTime() {
+    if (state.view === "start") { barTime.textContent = ""; return; }
+    var s = Math.floor(state.activeMs / 1000);
+    var m = Math.floor(s / 60);
+    barTime.textContent = m + "m " + String(s % 60).padStart(2, "0") + "s working";
+  }
+
+  document.addEventListener("pointerdown", tick, true);
+  document.addEventListener("pointermove", function (e) { if (e.buttons) tick(); }, true);
+  document.addEventListener("keydown", tick, true);
+  setInterval(function () { if (state.view !== "start") paintTime(); }, 1000);
+
+  // ---------------------------------------------------------------- helpers
+
+  function el(tag, attrs, kids) {
+    var node = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "class") node.className = attrs[k];
+      else if (k === "text") node.textContent = attrs[k];
+      else if (k === "html") node.innerHTML = attrs[k];
+      else if (k.slice(0, 2) === "on") node.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] === true) node.setAttribute(k, "");
+      else if (attrs[k] !== false && attrs[k] != null) node.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (kid) {
+      if (kid) node.appendChild(typeof kid === "string" ? document.createTextNode(kid) : kid);
+    });
+    return node;
+  }
+
+  function problemsOn(pageNumber) {
+    var packed = PAGES[pageNumber - 1] || [];
+    return packed.map(function (v, i) {
+      var a = Math.floor(v / 10), b = v % 10;
+      return { position: i + 1, a: a, b: b, prompt: a + " + " + b, answer: String(a + b) };
+    });
+  }
+
+  function currentPageNumber() { return state.startPage + state.pageOffset; }
+  function packetPageNumbers() {
+    var out = [];
+    for (var i = 0; i < state.packetPages; i++) out.push(state.startPage + i);
+    return out;
+  }
+  function key(page, pos) { return page + ":" + pos; }
+
+  function packetStats() {
+    var total = 0, wrong = 0, answered = 0;
+    packetPageNumbers().forEach(function (page) {
+      problemsOn(page).forEach(function (p) {
+        total++;
+        var a = state.answers[key(page, p.position)];
+        if (a) {
+          answered++;
+          if (a.verdict === "wrong") wrong++;
+        }
+      });
+    });
+    return { total: total, wrong: wrong, answered: answered, allowed: allowedWrong(total) };
+  }
+
+  function openCorrections() {
+    return state.corrections.filter(function (c) { return !c.resolved; });
+  }
+
+  // ------------------------------------------------------------- ink canvas
+
+  function makeCanvas(box, saved) {
+    var canvas = el("canvas");
+    box.appendChild(canvas);
+    var ctx = null, drawing = false, last = null, hasInk = !!(saved && saved.length);
+    var strokes = saved ? saved.slice() : [];
+    var current = null;
+
+    function size() {
+      var rect = box.getBoundingClientRect();
+      var dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      redraw(rect.width, rect.height);
+    }
+
+    function redraw(w, h) {
+      ctx.clearRect(0, 0, w || canvas.width, h || canvas.height);
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--pencil").trim() || "#1B1B18";
+      strokes.forEach(function (stroke) {
+        for (var i = 1; i < stroke.length; i++) {
+          ctx.beginPath();
+          ctx.lineWidth = stroke[i][2];
+          ctx.moveTo(stroke[i - 1][0], stroke[i - 1][1]);
+          ctx.lineTo(stroke[i][0], stroke[i][1]);
+          ctx.stroke();
+        }
+      });
+    }
+
+    function point(e) {
+      var rect = canvas.getBoundingClientRect();
+      // Apple Pencil reports real pressure; a finger or mouse reports 0 or .5.
+      var pressure = e.pressure && e.pressure > 0 && e.pressure !== 0.5 ? e.pressure : 0.55;
+      return [e.clientX - rect.left, e.clientY - rect.top, 1.4 + pressure * 2.6];
+    }
+
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      drawing = true;
+      hasInk = true;
+      box.classList.remove("empty");
+      current = [point(e)];
+      strokes.push(current);
+      last = current[0];
+    });
+
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      e.preventDefault();
+      var p = point(e);
+      current.push(p);
+      ctx.beginPath();
+      ctx.lineWidth = p[2];
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--pencil").trim() || "#1B1B18";
+      ctx.moveTo(last[0], last[1]);
+      ctx.lineTo(p[0], p[1]);
+      ctx.stroke();
+      last = p;
+    });
+
+    function end(e) {
+      if (!drawing) return;
+      drawing = false;
+      if (e && e.pointerId != null && canvas.hasPointerCapture(e.pointerId)) {
+        canvas.releasePointerCapture(e.pointerId);
+      }
+    }
+    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", end);
+    canvas.addEventListener("pointerleave", end);
+
+    requestAnimationFrame(size);
+    return {
+      get hasInk() { return hasInk; },
+      get strokes() { return strokes; },
+      clear: function () { strokes = []; hasInk = false; box.classList.add("empty"); size(); }
+    };
+  }
+
+  function replayInk(box, strokes) {
+    var canvas = el("canvas");
+    box.appendChild(canvas);
+    requestAnimationFrame(function () {
+      var rect = box.getBoundingClientRect();
+      var dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      var ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--pencil").trim() || "#1B1B18";
+      (strokes || []).forEach(function (stroke) {
+        for (var i = 1; i < stroke.length; i++) {
+          ctx.beginPath();
+          ctx.lineWidth = stroke[i][2];
+          ctx.moveTo(stroke[i - 1][0], stroke[i - 1][1]);
+          ctx.lineTo(stroke[i][0], stroke[i][1]);
+          ctx.stroke();
+        }
+      });
+    });
+  }
+
+  // ------------------------------------------------------------------ views
+
+  function render() {
+    main.innerHTML = "";
+    actions.innerHTML = "";
+    barPips.hidden = state.view === "start";
+    btnStop.hidden = state.view === "start" || state.view === "email";
+    paintTime();
+    views[state.view]();
+    main.scrollTop = 0;
+  }
+
+  function setPips() {
+    barPips.innerHTML = "";
+    for (var i = 0; i < state.packetPages; i++) {
+      var cls = "pip" + (i < state.pageOffset ? " done" : i === state.pageOffset ? " now" : "");
+      barPips.appendChild(el("span", { class: cls }));
+    }
+  }
+
+  var views = {};
+
+  // -- check in ------------------------------------------------------------
+
+  views.start = function () {
+    barWhere.textContent = "Level 2A";
+    barPips.hidden = true;
+
+    var modeSel = el("select", { id: "mode" }, [
+      el("option", { value: "write", text: "Write with a pencil or finger" }),
+      el("option", { value: "type", text: "Type the answers" })
+    ]);
+    modeSel.value = state.mode;
+
+    var sizeSel = el("select", { id: "packet-size" }, [
+      el("option", { value: "10", text: "10 pages — 200 problems" }),
+      el("option", { value: "5", text: "5 pages — 100 problems" }),
+      el("option", { value: "2", text: "2 pages — 40 problems (short, for trying it out)" })
+    ]);
+    sizeSel.value = String(state.packetPages);
+
+    var startInput = el("input", {
+      type: "number", id: "start-page", min: "1", max: "200", value: String(state.startPage)
+    });
+
+    main.appendChild(el("div", { class: "wrap narrow stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "Meridian Centre" }),
+        el("h2", { text: "Hold your card up to the camera" }),
+        el("p", { class: "lede", text: "In the real thing a QR badge checks you in and takes a tablet for the session. Here, tap to start." })
+      ]),
+
+      el("div", { class: "card stack-sm" }, [
+        el("h3", { text: "Before you start" }),
+        el("div", { class: "row" }, [
+          el("label", { for: "mode", text: "How to answer" }), modeSel
+        ]),
+        el("div", { class: "row" }, [
+          el("label", { for: "packet-size", text: "Packet" }), sizeSel
+        ]),
+        el("div", { class: "row" }, [
+          el("label", { for: "start-page", text: "Starting at page" }), startInput,
+          el("span", { class: "meta", text: "of 200" })
+        ])
+      ]),
+
+      el("p", { class: "stand-in", html:
+        "<strong>Handwriting recognition is stood in for, not simulated.</strong> " +
+        "The ink you write is real and is captured the way the product would capture it. " +
+        "What no page can do without a server is read it &mdash; so in pencil mode you are " +
+        "shown your own ink afterwards and asked what you wrote, which is also exactly the " +
+        "review queue a facilitator works through. Typing mode grades what you enter, with " +
+        "no stand-in at all." })
+    ]));
+
+    actions.appendChild(el("span", { class: "meta", text: "Level 2A · addition within 10" }));
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      state.mode = modeSel.value;
+      state.packetPages = parseInt(sizeSel.value, 10);
+      state.startPage = Math.min(200, Math.max(1, parseInt(startInput.value, 10) || 1));
+      state.startPage = Math.min(state.startPage, 201 - state.packetPages);
+      state.pageOffset = 0;
+      state.answers = {};
+      state.started = Date.now();
+      state.lastTick = Date.now();
+      go(openCorrections().length ? "corrections" : "page");
+    }, text: "Check in" }));
+  };
+
+  // -- working a page ------------------------------------------------------
+
+  var liveFields = {};
+
+  views.page = function () {
+    var page = currentPageNumber();
+    var problems = problemsOn(page);
+    setPips();
+    barWhere.textContent = "2A · pages " + state.startPage + "–" +
+      (state.startPage + state.packetPages - 1) +
+      (state.attempt > 1 ? " · attempt " + state.attempt : "");
+
+    liveFields = {};
+
+    var sheet = el("div", { class: "sheet" });
+    problems.forEach(function (p) {
+      var box = el("div", { class: "field empty" });
+      var row = el("div", { class: "prob" }, [
+        el("span", { class: "n", text: String(p.position) }),
+        el("span", { class: "q", text: p.prompt + " =" }),
+        box
+      ]);
+      if (state.mode === "write") {
+        liveFields[p.position] = makeCanvas(box, null);
+      } else {
+        var input = el("input", {
+          type: "text", inputmode: "numeric", maxlength: "2",
+          id: "ans-" + page + "-" + p.position,
+          "aria-label": "Answer to " + p.prompt
+        });
+        box.classList.remove("empty");
+        box.appendChild(input);
+        liveFields[p.position] = { input: input, get hasInk() { return input.value.trim() !== ""; } };
+      }
+      sheet.appendChild(row);
+    });
+
+    main.appendChild(el("div", { class: "wrap stack" }, [
+      el("div", { class: "row" }, [
+        el("h2", { text: "Page " + page }),
+        el("span", { class: "spacer" }),
+        el("span", { class: "meta", text: "Page " + (state.pageOffset + 1) + " of " + state.packetPages })
+      ]),
+      sheet
+    ]));
+
+    var openC = openCorrections().length;
+    if (openC) {
+      actions.appendChild(el("span", { class: "meta", text: openC + " correction" + (openC === 1 ? "" : "s") + " waiting" }));
+    }
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { class: "primary", onclick: finishPage, text: "Finish this page" }));
+  };
+
+  function finishPage() {
+    var page = currentPageNumber();
+    var problems = problemsOn(page);
+
+    if (state.mode === "write") {
+      var written = problems.filter(function (p) { return liveFields[p.position].hasInk; });
+      if (!written.length) {
+        alert("Write at least one answer first.");
+        return;
+      }
+      state.pendingRead = problems.map(function (p) {
+        return { p: p, strokes: liveFields[p.position].strokes, blank: !liveFields[p.position].hasInk };
+      });
+      go("reader");
+      return;
+    }
+
+    problems.forEach(function (p) {
+      var typed = liveFields[p.position].input.value.trim();
+      record(page, p, typed === "" ? null : typed, null);
+    });
+    go("result");
+  }
+
+  // -- the stand-in reader -------------------------------------------------
+
+  views.reader = function () {
+    var page = currentPageNumber();
+    var rows = state.pendingRead;
+    var inputs = {};
+
+    var list = el("div", { class: "stack-sm" });
+    rows.forEach(function (row) {
+      var inkBox = el("div", { class: "ink" });
+      var input = el("input", {
+        type: "text", inputmode: "numeric", maxlength: "2",
+        id: "read-" + row.p.position,
+        value: row.blank ? "" : row.p.answer,
+        "aria-label": "What you wrote for " + row.p.prompt
+      });
+      inputs[row.p.position] = input;
+      var unread = el("button", { class: "small", onclick: function () {
+        input.value = "?";
+      }, text: "Couldn't read it" });
+
+      list.appendChild(el("div", { class: "reader-row" }, [
+        el("span", { class: "n", text: String(row.p.position) }),
+        el("span", { class: "q", text: row.p.prompt + " =" }),
+        inkBox,
+        input,
+        unread
+      ]));
+      if (!row.blank) replayInk(inkBox, row.strokes);
+    });
+
+    main.appendChild(el("div", { class: "wrap stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "Standing in for the recogniser" }),
+        el("h2", { text: "What did you write?" }),
+        el("p", { class: "lede", text: "Each box shows your own ink. The number beside it is what the recogniser would have to work out. Change any that are wrong, or mark one unreadable to see what a child is told when the writing cannot be made out." })
+      ]),
+      list
+    ]));
+
+    actions.appendChild(el("span", { class: "meta", text: "This step is the prototype's, not the product's." }));
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      rows.forEach(function (row) {
+        var v = (inputs[row.p.position].value || "").trim();
+        record(page, row.p, row.blank ? null : (v === "?" || v === "" ? "?" : v), row.strokes);
+      });
+      state.pendingRead = null;
+      go("result");
+    }, text: "That's what I wrote" }));
+  };
+
+  function record(page, problem, value, strokes) {
+    var k = key(page, problem.position);
+    var prev = state.answers[k] || { rewrites: 0 };
+    var verdict;
+
+    if (value === null) verdict = "blank";
+    else if (value === "?") verdict = prev.rewrites >= 2 ? "accepted" : "unread";
+    else verdict = value === problem.answer ? "correct" : "wrong";
+
+    if (verdict === "accepted") {
+      state.legibility.push(problem.prompt);
+    }
+    if (verdict === "wrong" && (!prev.verdict || prev.verdict !== "wrong")) {
+      state.corrections.push({
+        page: page, position: problem.position, prompt: problem.prompt,
+        answer: problem.answer, wrote: value, resolved: false
+      });
+    }
+    if (verdict === "correct" && prev.verdict === "wrong") {
+      state.corrections.forEach(function (c) {
+        if (c.page === page && c.position === problem.position) c.resolved = true;
+      });
+    }
+
+    state.answers[k] = {
+      value: value,
+      verdict: verdict,
+      rewrites: verdict === "unread" ? prev.rewrites + 1 : prev.rewrites,
+      strokes: strokes
+    };
+  }
+
+  // -- how the page went ---------------------------------------------------
+
+  views.result = function () {
+    var page = currentPageNumber();
+    var problems = problemsOn(page);
+    setPips();
+
+    var unread = [], wrong = [], correct = [], accepted = [];
+    problems.forEach(function (p) {
+      var a = state.answers[key(page, p.position)];
+      if (!a || a.verdict === "blank") return;
+      if (a.verdict === "unread") unread.push(p);
+      else if (a.verdict === "accepted") accepted.push(p);
+      else if (a.verdict === "wrong") wrong.push(p);
+      else correct.push(p);
+    });
+
+    var sheet = el("div", { class: "sheet" });
+    problems.forEach(function (p) {
+      var a = state.answers[key(page, p.position)];
+      if (!a || a.verdict === "blank") return;
+      var cls = "prob " + (a.verdict === "correct" ? "correct" : a.verdict === "wrong" ? "wrong" : "unread");
+      var says =
+        a.verdict === "correct" ? "" :
+        a.verdict === "wrong" ? "Not quite" :
+        a.verdict === "accepted" ? "Kept as written" : "Couldn't read that";
+      sheet.appendChild(el("div", { class: cls }, [
+        el("span", { class: "n", text: String(p.position) }),
+        el("span", { class: "q", text: p.prompt + " =" }),
+        el("span", { class: "q", text: a.value === "?" ? "—" : a.value }),
+        el("span", { class: "spacer" }),
+        el("span", { class: "verdict", text: says })
+      ]));
+    });
+
+    var bits = [
+      el("div", { class: "row" }, [
+        el("h2", { text: "Page " + page }),
+        el("span", { class: "spacer" }),
+        el("span", { class: "meta", text: correct.length + " of " + (correct.length + wrong.length + unread.length + accepted.length) + " right" })
+      ])
+    ];
+
+    if (unread.length) {
+      bits.push(el("div", { class: "note amber" }, [
+        el("strong", { text: "I couldn't read " + unread.length + (unread.length === 1 ? " answer" : " answers") }),
+        el("span", { text: "Write " + (unread.length === 1 ? "it" : "them") + " again for me? This says nothing about whether the maths was right — it is about the writing." })
+      ]));
+    }
+    if (accepted.length) {
+      bits.push(el("div", { class: "note teal" }, [
+        el("strong", { text: "Kept as written" }),
+        el("span", { text: "Two tries was enough. " + accepted.length + " answer" + (accepted.length === 1 ? " was" : "s were") + " accepted as they are, and a note about the writing goes to your grown-up. Nothing is marked wrong for it." })
+      ]));
+    }
+    if (wrong.length) {
+      bits.push(el("div", { class: "note rust" }, [
+        el("strong", { text: wrong.length + (wrong.length === 1 ? " one" : " of them") + " to come back to" }),
+        el("span", { text: "These go in your corrections. You can put them right now or at the start of tomorrow." })
+      ]));
+    }
+    bits.push(sheet);
+
+    main.appendChild(el("div", { class: "wrap stack" }, bits));
+
+    if (unread.length) {
+      actions.appendChild(el("span", { class: "spacer" }));
+      actions.appendChild(el("button", { class: "primary", onclick: function () {
+        state.rewriting = unread;
+        go("rewrite");
+      }, text: "Write " + (unread.length === 1 ? "it" : "them") + " again" }));
+      return;
+    }
+
+    actions.appendChild(el("span", { class: "spacer" }));
+    var last = state.pageOffset + 1 >= state.packetPages;
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      if (last) { go("packet"); return; }
+      state.pageOffset++;
+      go("page");
+    }, text: last ? "Finish the packet" : "Next page" }));
+  };
+
+  // -- rewriting an unreadable answer --------------------------------------
+
+  views.rewrite = function () {
+    var page = currentPageNumber();
+    var fields = {};
+    var list = el("div", { class: "sheet" });
+
+    state.rewriting.forEach(function (p) {
+      var box = el("div", { class: "field empty" });
+      list.appendChild(el("div", { class: "prob unread" }, [
+        el("span", { class: "n", text: String(p.position) }),
+        el("span", { class: "q", text: p.prompt + " =" }),
+        box
+      ]));
+      if (state.mode === "write") {
+        fields[p.position] = makeCanvas(box, null);
+      } else {
+        var input = el("input", { type: "text", inputmode: "numeric", maxlength: "2",
+          id: "rw-" + page + "-" + p.position, "aria-label": "Answer to " + p.prompt });
+        box.classList.remove("empty");
+        box.appendChild(input);
+        fields[p.position] = { input: input, get hasInk() { return input.value.trim() !== ""; } };
+      }
+    });
+
+    var a0 = state.answers[key(page, state.rewriting[0].position)];
+    var second = a0 && a0.rewrites >= 2;
+
+    main.appendChild(el("div", { class: "wrap stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("h2", { text: second ? "One more try — nice and big" : "Write it again for me?" }),
+        el("p", { class: "lede", text: second
+          ? "If I still can't read it I'll keep what you've written and we'll move on. You will not be marked down for it."
+          : "I couldn't make out the writing. The maths may well be right." })
+      ]),
+      list
+    ]));
+
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      var rows = state.rewriting.map(function (p) {
+        return { p: p, strokes: state.mode === "write" ? fields[p.position].strokes : null,
+                 typed: state.mode === "type" ? fields[p.position].input.value.trim() : null,
+                 blank: !fields[p.position].hasInk };
+      });
+      if (state.mode === "type") {
+        rows.forEach(function (r) { record(page, r.p, r.blank ? "?" : r.typed, null); });
+        state.rewriting = null;
+        go("result");
+      } else {
+        state.pendingRead = rows;
+        go("reader");
+      }
+    }, text: "Done" }));
+  };
+
+  // -- end of packet -------------------------------------------------------
+
+  views.packet = function () {
+    var s = packetStats();
+    var passed = s.wrong <= s.allowed;
+    var pct = s.total ? Math.round(((s.total - s.wrong) / s.total) * 100) : 0;
+
+    var outcome, detail;
+    if (passed) {
+      outcome = "Move on to the next packet";
+      detail = "Pages " + (state.startPage + state.packetPages) + "–" +
+        (state.startPage + state.packetPages * 2 - 1) + " next time.";
+      state.events.push("Passed pages " + state.startPage + "–" + (state.startPage + state.packetPages - 1));
+    } else if (state.attempt === 1) {
+      outcome = "Do this packet again";
+      detail = "Same pages, same problems. The point is to get quicker at them, not to meet new ones.";
+      state.events.push("Missed the gate on pages " + state.startPage + "–" + (state.startPage + state.packetPages - 1));
+    } else {
+      outcome = "Back a packet";
+      detail = "Twice is enough. The system moves the student back and flags the facilitator to come and teach — it does not ask anybody to decide.";
+      state.events.push("Dropped back after a second failure");
+    }
+
+    main.appendChild(el("div", { class: "wrap narrow stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "Packet finished" }),
+        el("div", { class: "big", text: (s.total - s.wrong) + "/" + s.total }),
+        el("p", { class: "lede", text: pct + "% · pages " + state.startPage + "–" + (state.startPage + state.packetPages - 1) + " · attempt " + state.attempt })
+      ]),
+
+      el("div", { class: "card stack-sm" }, [
+        el("h3", { text: "The gate" }),
+        el("table", {}, [
+          el("tbody", {}, [
+            el("tr", {}, [el("td", { text: "Problems in the packet" }), el("td", { class: "num", text: String(s.total) })]),
+            el("tr", {}, [el("td", { text: "Allowed wrong — ceil(5%), never below 1" }), el("td", { class: "num", text: String(s.allowed) })]),
+            el("tr", {}, [el("td", { text: "Actually wrong" }), el("td", { class: "num", text: String(s.wrong) })])
+          ])
+        ]),
+        el("p", { class: "meta", text: "Measured per hundred problems, not per packet, so a short packet is never the harshest." })
+      ]),
+
+      el("div", { class: "note " + (passed ? "teal" : state.attempt === 1 ? "amber" : "rust") }, [
+        el("strong", { text: outcome }),
+        el("span", { text: detail })
+      ])
+    ]));
+
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { onclick: function () { go("email"); }, text: "See tonight's email" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      if (passed) {
+        state.startPage = Math.min(201 - state.packetPages, state.startPage + state.packetPages);
+        state.attempt = 1;
+      } else if (state.attempt === 1) {
+        state.attempt = 2;
+      } else {
+        state.startPage = Math.max(1, state.startPage - state.packetPages);
+        state.attempt = 1;
+      }
+      state.pageOffset = 0;
+      state.answers = {};
+      go(openCorrections().length ? "corrections" : "page");
+    }, text: passed ? "Next packet" : state.attempt === 1 ? "Try again" : "Go back a packet" }));
+  };
+
+  // -- corrections ---------------------------------------------------------
+
+  views.corrections = function () {
+    var open = openCorrections();
+    barWhere.textContent = "Corrections";
+    if (!open.length) { go("page"); return; }
+
+    var fields = {};
+    var list = el("div", { class: "sheet" });
+    open.forEach(function (c) {
+      var box = el("div", { class: "field empty" });
+      list.appendChild(el("div", { class: "prob unread" }, [
+        el("span", { class: "n", text: "p" + c.page }),
+        el("span", { class: "q", text: c.prompt + " =" }),
+        box
+      ]));
+      if (state.mode === "write") {
+        fields[c.page + ":" + c.position] = makeCanvas(box, null);
+      } else {
+        var input = el("input", { type: "text", inputmode: "numeric", maxlength: "2",
+          id: "cor-" + c.page + "-" + c.position, "aria-label": "Answer to " + c.prompt });
+        box.classList.remove("empty");
+        box.appendChild(input);
+        fields[c.page + ":" + c.position] = { input: input, get hasInk() { return input.value.trim() !== ""; } };
+      }
+    });
+
+    main.appendChild(el("div", { class: "wrap stack" }, [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "First, before anything new" }),
+        el("h2", { text: open.length + " to put right" }),
+        el("p", { class: "lede", text: "Corrections are a queue that belongs to the student, not to a packet. They survive the night and are cleared before new material." })
+      ]),
+      list
+    ]));
+
+    actions.appendChild(el("button", { onclick: function () {
+      state.skipped = state.skipped.concat(open.map(function (c) { return c.prompt; }));
+      state.events.push("Closed with " + open.length + " correction" + (open.length === 1 ? "" : "s") + " still to do");
+      go("email");
+    }, text: "Leave them for tonight" }));
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      open.forEach(function (c) {
+        var f = fields[c.page + ":" + c.position];
+        var got = state.mode === "type" ? f.input.value.trim() : null;
+        if (state.mode === "type") {
+          if (got === c.answer) c.resolved = true;
+        } else if (f.hasInk) {
+          // In pencil mode the stand-in reader is not worth a second screen for
+          // corrections: ink present counts as put right.
+          c.resolved = true;
+        }
+      });
+      go(openCorrections().length ? "corrections" : "page");
+    }, text: "Done" }));
+  };
+
+  // -- the nightly email ---------------------------------------------------
+
+  views.email = function () {
+    var s = packetStats();
+    var open = openCorrections();
+    var minutes = Math.max(1, Math.round(state.activeMs / 60000));
+    var today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+
+    var wrongList = state.corrections.slice(0, 6).map(function (c) {
+      return el("tr", {}, [
+        el("td", {}, [el("span", { class: "q", text: c.prompt })]),
+        el("td", { class: "num", text: c.wrote && c.wrote !== "?" ? "wrote " + c.wrote : "—" }),
+        el("td", { class: "num", text: "is " + c.answer })
+      ]);
+    });
+
+    var body = [
+      el("div", { class: "stack-sm" }, [
+        el("span", { class: "eyebrow", text: "Meridian Centre · 8:30 pm" }),
+        el("h2", { text: "Your child's work — " + today })
+      ])
+    ];
+
+    if (s.answered === 0) {
+      body.push(el("div", { class: "card stack-sm" }, [
+        el("div", { class: "big", text: "No work today." }),
+        el("p", { class: "lede", text: "Nothing was opened on the tablet. This email still goes out — it is arguably the most useful thing the system sends, and precisely what a paper centre cannot." })
+      ]));
+    } else {
+      body.push(el("div", { class: "card stack-sm" }, [
+        el("div", { class: "row" }, [
+          el("div", {}, [
+            el("div", { class: "big", text: (s.answered - s.wrong) + "/" + s.answered }),
+            el("span", { class: "meta", text: "Level 2A · pages " + state.startPage + "–" + (state.startPage + state.packetPages - 1) })
+          ]),
+          el("span", { class: "spacer" }),
+          el("span", { class: "meta", text: minutes + " minutes of working time" })
+        ])
+      ]));
+
+      if (wrongList.length) {
+        body.push(el("div", { class: "card stack-sm" }, [
+          el("h3", { text: "What went wrong" }),
+          el("table", {}, [el("tbody", {}, wrongList)])
+        ]));
+      }
+
+      if (open.length) {
+        body.push(el("div", { class: "note amber" }, [
+          el("strong", { text: open.length + " correction" + (open.length === 1 ? "" : "s") + " left for tomorrow" }),
+          el("span", { text: "They chose to stop before putting them right. That is allowed, it is logged, and nothing disappears quietly." })
+        ]));
+      }
+
+      if (state.legibility.length) {
+        body.push(el("div", { class: "card stack-sm" }, [
+          el("h3", { text: "Handwriting, not maths" }),
+          el("p", { text: "Some answers could not be read after two tries — " + state.legibility.slice(0, 4).join(", ") + ". Worth a minute of practice. It does not affect the score." })
+        ]));
+      }
+    }
+
+    body.push(el("p", { class: "stand-in", text: "Checked by a facilitator before sending. Version one queues every report for a glance, because one misread digit telling a parent their child failed something they got right is a trust problem that does not recover quickly." }));
+
+    main.appendChild(el("div", { class: "wrap narrow stack" }, body));
+
+    actions.appendChild(el("span", { class: "spacer" }));
+    actions.appendChild(el("button", { onclick: function () { location.reload(); }, text: "Start over" }));
+    actions.appendChild(el("button", { class: "primary", onclick: function () {
+      go(openCorrections().length ? "corrections" : "page");
+    }, text: "Back to the work" }));
+  };
+
+  // ------------------------------------------------------------------ boot
+
+  function go(view) { state.view = view; render(); }
+
+  btnStop.addEventListener("click", function () {
+    var open = openCorrections();
+    if (open.length) {
+      state.skipped = state.skipped.concat(open.map(function (c) { return c.prompt; }));
+      state.events.push("Closed with " + open.length + " correction" + (open.length === 1 ? "" : "s") + " still to do");
+    }
+    go("email");
+  });
+
+  if (!PAGES.length) {
+    main.appendChild(el("div", { class: "wrap narrow stack" }, [
+      el("h2", { text: "The curriculum did not load" }),
+      el("p", { class: "lede", text: "2A.data.js is missing, so there are no pages to work. It carries all 200 pages of level 2A." })
+    ]));
+  } else {
+    render();
+  }
+})();
+</script>
